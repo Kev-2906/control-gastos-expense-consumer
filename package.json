@@ -1,0 +1,32 @@
+{
+  "name": "control-gastos-expense-consumer",
+  "version": "0.0.1",
+  "description": "Envía los gastos del Portal Externo de Gastos a Odoo: consume eventos de RabbitMQ y deja auditoría de cada petición",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "start": "tsx --env-file-if-exists=.env src/main.ts",
+    "start:dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "start:prod": "node --env-file-if-exists=.env dist/main",
+    "lint": "oxlint --type-aware src/"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "amqp-connection-manager": "^5.0.1",
+    "amqplib": "^0.10.9",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
+    "oxlint": "^1.91.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}
