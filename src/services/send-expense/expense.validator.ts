@@ -30,8 +30,11 @@ export async function findUsableCategory(
 
 export async function ensureReferencesAreUsable(
   catalog: OdooCatalogClient,
-  { currencyOdooId, paymentMethodOdooId, analyticAccountOdooIds }: SendableExpense,
+  { employeeOdooId, currencyOdooId, paymentMethodOdooId, analyticAccountOdooIds }: SendableExpense,
 ): Promise<void> {
+  if (!(await catalog.isEmployeeActive(employeeOdooId))) {
+    throw unavailable('The employee is archived in Odoo');
+  }
   if (currencyOdooId !== null && !(await catalog.isCurrencyActive(currencyOdooId))) {
     throw unavailable('The currency is archived in Odoo');
   }

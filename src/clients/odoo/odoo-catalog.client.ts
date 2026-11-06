@@ -20,6 +20,11 @@ export class OdooCatalogClient {
     return product ? { hasCost: product.standard_price > 0 } : null;
   }
 
+  async isEmployeeActive(employeeOdooId: number): Promise<boolean> {
+    const found = await this.findIds('hr.employee', [['id', '=', employeeOdooId]]);
+    return found.length === 1;
+  }
+
   async isCurrencyActive(currencyOdooId: number): Promise<boolean> {
     const found = await this.findIds('res.currency', [['id', '=', currencyOdooId]]);
     return found.length === 1;
