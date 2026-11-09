@@ -1,6 +1,6 @@
 import { GetObjectCommand, NoSuchKey, S3Client } from '@aws-sdk/client-s3';
-import { config } from '../core/config';
-import { ExpenseRejectedError, RetryLaterError } from '../core/errors';
+import { config } from '../../core/config';
+import { ExpenseRejectedError, RetryLaterError } from '../../core/errors';
 
 const client = new S3Client({
   region: config.STORAGE_REGION,
@@ -23,7 +23,7 @@ export async function downloadReceipt(
     return Buffer.from(await Body!.transformToByteArray());
   } catch (error) {
     if (error instanceof NoSuchKey) {
-      throw new ExpenseRejectedError('OBJECT_NOT_FOUND', `The receipt ${receiptId} is not in S3`);
+      throw new ExpenseRejectedError('RECEIPT_NOT_FOUND', `The receipt ${receiptId} is not in S3`);
     }
     const reason = error instanceof Error ? error.message : String(error);
     throw new RetryLaterError('STORAGE_UNAVAILABLE', `S3 could not be read: ${reason}`);

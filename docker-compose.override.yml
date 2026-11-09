@@ -1,0 +1,7 @@
+services:
+  expense-consumer:
+    environment:
+      DATABASE_HOST: host.docker.internal
+      RABBITMQ_HOST: host.docker.internal
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
