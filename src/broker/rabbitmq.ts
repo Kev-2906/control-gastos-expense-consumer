@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { connect } from 'amqp-connection-manager';
 import { Channel, ConfirmChannel } from 'amqplib';
 import { config } from '../core/config';
-import { EXPENSE_SEND_DELIVERY_LIMIT, handleExpenseSubmitted } from './expense-submitted.consumer';
+import {
+  EXPENSE_SEND_DELIVERY_LIMIT,
+  handleExpenseSubmitted,
+} from './consumers/expense-submitted.consumer';
 import { publishPending } from '../services/publish-pending.service';
 import { ExpenseSubmitted } from '../services/send-expense/send-expense.service';
 

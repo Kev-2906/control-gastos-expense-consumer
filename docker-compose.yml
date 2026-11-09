@@ -1,0 +1,14 @@
+services:
+  expense-consumer:
+    container_name: gastos-expense-consumer
+    build: .
+    env_file: .env
+    environment:
+      ODOO_AUDIT_DB_PATH: /app/data/odoo-audit.sqlite
+    volumes:
+      - odoo-audit-data:/app/data
+    mem_limit: 256m
+    restart: unless-stopped
+
+volumes:
+  odoo-audit-data:

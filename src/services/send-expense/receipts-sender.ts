@@ -1,5 +1,5 @@
 import { OdooAttachmentClient } from '../../clients/odoo/odoo-attachment.client';
-import { downloadReceipt } from '../../clients/s3.client';
+import { downloadReceipt } from '../../clients/bucket/s3.client';
 import * as submissions from '../../repositories/expense-submission.repository';
 import { Submission } from '../../repositories/expense-submission.repository';
 import * as receipts from '../../repositories/receipt.repository';

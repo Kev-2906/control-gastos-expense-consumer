@@ -1,6 +1,6 @@
 import { closeAudit } from './repositories/odoo-audit.repository';
 import { pool } from './core/database';
-import { startConsuming, stopConsuming } from './consumers/rabbitmq';
+import { startConsuming, stopConsuming } from './broker/rabbitmq';
 
 async function shutdown(): Promise<void> {
   await stopConsuming();

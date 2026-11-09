@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+docker-compose.yml
+.env
+.env.*
+*.tsbuildinfo
+.git
+.vscode
+.idea
+.DS_Store
+docker-compose.override.yml
