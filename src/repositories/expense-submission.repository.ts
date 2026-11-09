@@ -120,7 +120,7 @@ export async function scheduleRetry(
     `UPDATE expense_submissions
      SET status = 'pending', locked_until = NULL, next_attempt_at = $5,
          last_error_code = $3, last_error_message = $4, updated_at = now()
-     WHERE organization_id = $1 AND expense_id = $2`,
+     WHERE organization_id = $1 AND expense_id = $2 AND status = 'sending'`,
     [organizationId, expenseId, errorCode, errorMessage, nextAttemptAt],
   );
 }
