@@ -11,6 +11,7 @@ export async function sendReceipts(
   odooExpenseId: number,
 ): Promise<void> {
   const { organizationId, expenseId } = submission;
+  await removeDeletedReceipts(attachments, submission, odooExpenseId);
 
   for (const receipt of await receipts.findNotSent(organizationId, expenseId)) {
     await submissions.renewLock(organizationId, expenseId);
@@ -21,6 +22,21 @@ export async function sendReceipts(
 
     await receipts.markSent(organizationId, expenseId, receipt.receiptId, attachmentId);
   }
+}
+
+async function removeDeletedReceipts(
+  attachments: OdooAttachmentClient,
+  { organizationId, expenseId }: Submission,
+  odooExpenseId: number,
+): Promise<void> {
+  const keptReceiptIds = new Set(await receipts.findIds(organizationId, expenseId));
+  const removed = (await attachments.findPortalReceipts(odooExpenseId)).filter(
+    (attachment) => !keptReceiptIds.has(attachment.receiptId),
+  );
+  if (removed.length === 0) return;
+
+  await submissions.renewLock(organizationId, expenseId);
+  await attachments.delete(removed.map((attachment) => attachment.attachmentId));
 }
 
 async function uploadReceipt(

@@ -33,3 +33,13 @@ export async function markSent(
     [organizationId, expenseId, receiptId, odooAttachmentId],
   );
 }
+
+export async function findIds(organizationId: string, expenseId: string): Promise<string[]> {
+  const { rows } = await pool.query<{ receiptId: string }>(
+    `SELECT receipt_id AS "receiptId"
+     FROM receipts
+     WHERE organization_id = $1 AND expense_id = $2`,
+    [organizationId, expenseId],
+  );
+  return rows.map((row) => row.receiptId);
+}
