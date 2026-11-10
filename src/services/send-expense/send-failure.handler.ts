@@ -2,9 +2,12 @@ import { ExpenseRejectedError, RetryLaterError } from '../../core/errors';
 import * as submissions from '../../repositories/expense-submission.repository';
 import { Submission } from '../../repositories/expense-submission.repository';
 import * as connections from '../../repositories/odoo-connection.repository';
+import { invalidateConnection } from '../notifications/invalidate-connection';
+import { emailNotices } from '../notifications/notice-emailer';
 import { ExpenseSubmitted } from './send-expense.service';
 
 const RETRIES_EXHAUSTED_CODE = 'ODOO_RETRIES_EXHAUSTED';
+const INVALID_API_KEY_CODE = 'ODOO_INVALID_API_KEY';
 const UNEXPECTED_ERROR_CODE = 'UNEXPECTED_ERROR';
 const CONNECTION_PAUSE_MS = 4 * 60 * 1000;
 const MIN_RETRY_DELAY_MS = 5 * 60 * 1000;
@@ -16,7 +19,13 @@ export async function handleSendFailure(
   previousFailures: number,
 ): Promise<void> {
   if (error instanceof ExpenseRejectedError) {
-    await submissions.markRejected(organizationId, expenseId, error.code, error.message);
+    const notice = await submissions.markRejected(
+      organizationId,
+      expenseId,
+      error.code,
+      error.message,
+    );
+    await emailNotices(notice ? [notice] : []);
     return;
   }
   const nextAttemptAt = new Date(Date.now() + retryDelayMs(previousFailures + 1));
@@ -34,6 +43,9 @@ export async function handleSendFailure(
         connectionId,
         new Date(Date.now() + CONNECTION_PAUSE_MS),
       );
+    }
+    if (error.code === INVALID_API_KEY_CODE) {
+      await notifyInvalidConnection(organizationId, connectionId);
     }
   } else {
     await releaseAfterUnexpectedError(organizationId, expenseId, error, nextAttemptAt);
@@ -71,14 +83,28 @@ export async function handleRetriesExhausted(
   console.error(`Expense ${expenseId} ran out of retries and goes to the dead letter queue`);
 
   try {
-    await submissions.markRejected(
+    const notice = await submissions.markRejected(
       organizationId,
       expenseId,
       RETRIES_EXHAUSTED_CODE,
       `Retries exhausted: ${reason}`,
     );
+    await emailNotices(notice ? [notice] : []);
   } catch (markError) {
     console.error(`Could not mark expense ${expenseId} as failed: ${String(markError)}`);
+  }
+}
+
+async function notifyInvalidConnection(
+  organizationId: string,
+  connectionId: string,
+): Promise<void> {
+  try {
+    await emailNotices(await invalidateConnection(organizationId, connectionId));
+  } catch (notifyError) {
+    console.error(
+      `Could not mark the Odoo connection ${connectionId} as invalid: ${String(notifyError)}`,
+    );
   }
 }
 

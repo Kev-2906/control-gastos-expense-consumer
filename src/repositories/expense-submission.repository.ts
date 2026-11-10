@@ -1,7 +1,8 @@
+import { PoolClient } from 'pg';
 import { pool, transaction } from '../core/database';
 import * as statusLogs from './expense-status-log.repository';
 import * as notifications from './notification.repository';
-import { NotificationData } from './notification.repository';
+import { Notice, Recipient } from './notification.repository';
 
 export interface Submission {
   expenseId: string;
@@ -12,25 +13,14 @@ export interface Submission {
 
 const LOCK_DURATION_MS = 10 * 60 * 1000;
 const EXPENSE_SENT_NOTIFICATION = 'expense_sent';
+const EXPENSE_SEND_FAILED_NOTIFICATION = 'expense_send_failed';
 
-export interface ExpenseSentNotice {
-  organizationId: string;
-  expenseId: string;
-  notificationId: string;
-  recipient: { email: string; name: string } | null;
-  type: string;
-  data: NotificationData;
-}
-
-interface SentExpenseRow {
+interface ExpenseForNotice {
   status: string;
   description: string | null;
   paymentMode: string;
   currency: string | null;
-  userId: string;
-  email: string;
-  name: string;
-  userStatus: string;
+  reporter: Recipient;
 }
 
 const COLUMNS = `
@@ -61,7 +51,7 @@ export async function findUnpublished(limit: number): Promise<Submission[]> {
 
 export async function markPublished(organizationId: string, expenseId: string): Promise<void> {
   await pool.query(
-    `UPDATE expense_submissions SET published_at = now(), updated_at = now()
+    `UPDATE expense_submissions SET published_at = now(), stuck_notified_at = NULL, updated_at = now()
      WHERE organization_id = $1 AND expense_id = $2`,
     [organizationId, expenseId],
   );
@@ -96,19 +86,9 @@ export async function markSent(
   odooId: number,
   expenseStatus: string,
   total: number,
-): Promise<ExpenseSentNotice | null> {
+): Promise<Notice | null> {
   return transaction(async (client) => {
-    const { rows } = await client.query<SentExpenseRow>(
-      `SELECT e.status, e.description, e.payment_mode AS "paymentMode", c.name AS currency,
-              u.user_id AS "userId", u.email, u.name, u.status AS "userStatus"
-       FROM expenses e
-       JOIN reporters r ON r.reporter_id = e.reporter_id AND r.organization_id = e.organization_id
-       JOIN users u ON u.user_id = r.user_id AND u.organization_id = r.organization_id
-       LEFT JOIN currencies c ON c.currency_id = e.currency_id
-       WHERE e.organization_id = $1 AND e.expense_id = $2
-       FOR UPDATE OF e`,
-      [organizationId, expenseId],
-    );
+    const expense = await findForNotice(client, organizationId, expenseId);
     await client.query(
       `UPDATE expenses
        SET odoo_id = $3, status = $4::expenses_status_enum, total = $5, updated_at = now()
@@ -122,9 +102,8 @@ export async function markSent(
        WHERE organization_id = $1 AND expense_id = $2`,
       [organizationId, expenseId],
     );
-
-    const expense = rows[0];
     if (!expense) return null;
+
     if (expense.status !== expenseStatus) {
       await statusLogs.create(
         client,
@@ -135,32 +114,21 @@ export async function markSent(
         'odoo',
       );
     }
-
-    const data: NotificationData = {
-      expenseDescription: expense.description,
-      total,
-      currency: expense.currency,
-      paymentMode: expense.paymentMode,
-      status: expenseStatus,
-      previousStatus: expense.status,
-    };
-    const notificationId = await notifications.create(
+    return notifications.create(
       client,
       organizationId,
-      expense.userId,
+      expense.reporter,
       expenseId,
       EXPENSE_SENT_NOTIFICATION,
-      data,
+      {
+        expenseDescription: expense.description,
+        total,
+        currency: expense.currency,
+        paymentMode: expense.paymentMode,
+        status: expenseStatus,
+        previousStatus: expense.status,
+      },
     );
-    return {
-      organizationId,
-      expenseId,
-      notificationId,
-      recipient:
-        expense.userStatus === 'active' ? { email: expense.email, name: expense.name } : null,
-      type: EXPENSE_SENT_NOTIFICATION,
-      data,
-    };
   });
 }
 
@@ -169,8 +137,8 @@ export async function markRejected(
   expenseId: string,
   errorCode: string,
   errorMessage: string,
-): Promise<void> {
-  await transaction(async (client) => {
+): Promise<Notice | null> {
+  return transaction(async (client) => {
     const failed = await client.query(
       `UPDATE expense_submissions
        SET status = 'failed', locked_until = NULL, next_attempt_at = NULL,
@@ -178,18 +146,91 @@ export async function markRejected(
        WHERE organization_id = $1 AND expense_id = $2 AND status IN ('pending', 'sending')`,
       [organizationId, expenseId, errorCode, errorMessage],
     );
-    if (failed.rowCount === 0) return;
+    if (failed.rowCount === 0) return null;
 
+    const expense = await findForNotice(client, organizationId, expenseId);
     const returned = await client.query(
       `UPDATE expenses
        SET status = 'draft', updated_at = now()
        WHERE organization_id = $1 AND expense_id = $2 AND status = 'submitted'`,
       [organizationId, expenseId],
     );
-    if (returned.rowCount === 0) return;
+    if (returned.rowCount === 0 || !expense) return null;
 
     await statusLogs.create(client, organizationId, expenseId, 'submitted', 'draft', 'portal');
+    return notifications.create(
+      client,
+      organizationId,
+      expense.reporter,
+      expenseId,
+      EXPENSE_SEND_FAILED_NOTIFICATION,
+      {
+        expenseDescription: expense.description,
+        total: expense.total,
+        currency: expense.currency,
+        paymentMode: expense.paymentMode,
+        status: 'draft',
+        previousStatus: 'submitted',
+        errorCode,
+      },
+    );
   });
+}
+
+export async function countWaitingByReporter(
+  client: PoolClient,
+  organizationId: string,
+  connectionId: string,
+): Promise<(Recipient & { count: number })[]> {
+  const { rows } = await client.query<Recipient & { count: number }>(
+    `SELECT u.user_id AS "userId", u.email, u.name, u.status, COUNT(*)::int AS count
+     FROM expense_submissions s
+     JOIN expenses e ON e.expense_id = s.expense_id AND e.organization_id = s.organization_id
+     JOIN reporters r ON r.reporter_id = e.reporter_id AND r.organization_id = e.organization_id
+     JOIN users u ON u.user_id = r.user_id AND u.organization_id = r.organization_id
+     WHERE s.organization_id = $1 AND s.connection_id = $2 AND s.status IN ('pending', 'sending')
+     GROUP BY u.user_id, u.email, u.name, u.status`,
+    [organizationId, connectionId],
+  );
+  return rows;
+}
+
+async function findForNotice(
+  client: PoolClient,
+  organizationId: string,
+  expenseId: string,
+): Promise<(ExpenseForNotice & { total: number | null }) | null> {
+  const { rows } = await client.query<{
+    status: string;
+    description: string | null;
+    paymentMode: string;
+    currency: string | null;
+    total: number | null;
+    userId: string;
+    email: string;
+    name: string;
+    userStatus: string;
+  }>(
+    `SELECT e.status, e.description, e.payment_mode AS "paymentMode", c.name AS currency,
+            e.total::float8 AS total, u.user_id AS "userId", u.email, u.name, u.status AS "userStatus"
+     FROM expenses e
+     JOIN reporters r ON r.reporter_id = e.reporter_id AND r.organization_id = e.organization_id
+     JOIN users u ON u.user_id = r.user_id AND u.organization_id = r.organization_id
+     LEFT JOIN currencies c ON c.currency_id = e.currency_id
+     WHERE e.organization_id = $1 AND e.expense_id = $2
+     FOR UPDATE OF e`,
+    [organizationId, expenseId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    status: row.status,
+    description: row.description,
+    paymentMode: row.paymentMode,
+    currency: row.currency,
+    total: row.total,
+    reporter: { userId: row.userId, email: row.email, name: row.name, status: row.userStatus },
+  };
 }
 
 export async function scheduleRetry(

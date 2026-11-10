@@ -7,7 +7,7 @@ import * as connections from '../../repositories/odoo-connection.repository';
 import { OdooConnection } from '../../repositories/odoo-connection.repository';
 import { sendToOdoo } from './expense-sender';
 import { ensureIsSendable } from './expense.validator';
-import { emailExpenseSent } from './expense-sent.notifier';
+import { emailNotices } from '../notifications/notice-emailer';
 import { handleSendFailure } from './send-failure.handler';
 
 export interface ExpenseSubmitted {
@@ -57,7 +57,7 @@ async function send(submission: Submission, connection: OdooConnection | null): 
     expenseStatusOf(sent.state),
     sent.total,
   );
-  await emailExpenseSent(notice);
+  await emailNotices(notice ? [notice] : []);
 }
 
 function ensureIsNotPaused(connection: OdooConnection | null): void {
