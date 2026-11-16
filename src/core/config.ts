@@ -13,6 +13,7 @@ const envSchema = z.object({
   RABBITMQ_PORT: z.coerce.number().int().positive().default(5672),
   RABBITMQ_USER: requiredString,
   RABBITMQ_PASSWORD: requiredString,
+  FRONTEND_URL: z.url().transform((url) => url.replace(/\/+$/, '')),
   SECRETS_ENCRYPTION_KEY: requiredString,
   STORAGE_REGION: requiredString,
   STORAGE_BUCKET: requiredString,

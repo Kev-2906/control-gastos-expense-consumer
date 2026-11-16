@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { connect } from 'amqp-connection-manager';
 import { Channel, ConfirmChannel } from 'amqplib';
-import { config } from '../core/config';
+import { connection } from './connection';
+import { closeEmailChannel } from './email-publisher';
 import {
   EXPENSE_SEND_DELIVERY_LIMIT,
   handleExpenseSubmitted,
@@ -16,16 +16,6 @@ const EXPENSE_SEND_QUEUE = 'backend.expense-send';
 const EXPENSE_SEND_DEAD_QUEUE = 'backend.expense-send.dead';
 const PREFETCH = 5;
 const PUBLISH_CONFIRM_TIMEOUT_MS = 5_000;
-
-const connection = connect([
-  {
-    protocol: 'amqp',
-    hostname: config.RABBITMQ_HOST,
-    port: config.RABBITMQ_PORT,
-    username: config.RABBITMQ_USER,
-    password: config.RABBITMQ_PASSWORD,
-  },
-]);
 
 const channelWrapper = connection.createChannel({
   setup: async (channel: ConfirmChannel) => {
@@ -49,6 +39,7 @@ export function startConsuming(): void {
 
 export async function stopConsuming(): Promise<void> {
   await channelWrapper.close();
+  await closeEmailChannel();
   await connection.close();
 }
 

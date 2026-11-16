@@ -34,7 +34,7 @@ Windows (PowerShell):
 Copy-Item .env.example .env
 ```
 
-Llénalo con los mismos valores del `.env` del backend: base de datos, RabbitMQ y `SECRETS_ENCRYPTION_KEY`. Esa llave tiene que ser la misma, porque con ella el backend cifró las API Keys de Odoo y este servicio las descifra. El `.env` nunca se sube al repositorio.
+Llénalo con los mismos valores del `.env` del backend: base de datos, RabbitMQ, `FRONTEND_URL` y `SECRETS_ENCRYPTION_KEY`. `FRONTEND_URL` sirve para el enlace "Ver el gasto" del correo que se manda cuando el gasto llega a Odoo. Esa llave tiene que ser la misma, porque con ella el backend cifró las API Keys de Odoo y este servicio las descifra. El `.env` nunca se sube al repositorio.
 
 `DATABASE_HOST`, `RABBITMQ_HOST` y `ODOO_AUDIT_DB_PATH` puedes dejarlos como están. En desarrollo, el `docker-compose.override.yml` reemplaza los dos primeros (ver el paso 2), y el `docker-compose.yml` fija la ruta de la auditoría dentro del volumen.
 

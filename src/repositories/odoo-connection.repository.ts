@@ -1,3 +1,4 @@
+import { PoolClient } from 'pg';
 import { pool } from '../core/database';
 
 export interface OdooConnection {
@@ -38,4 +39,18 @@ export async function pauseSends(
      WHERE organization_id = $1 AND connection_id = $2`,
     [organizationId, connectionId, until],
   );
+}
+
+export async function markInvalidIfActive(
+  client: PoolClient,
+  organizationId: string,
+  connectionId: string,
+): Promise<string | null> {
+  const { rows } = await client.query<{ name: string }>(
+    `UPDATE odoo_connections SET status = 'invalid', updated_at = now()
+     WHERE organization_id = $1 AND connection_id = $2 AND status = 'active'
+     RETURNING name`,
+    [organizationId, connectionId],
+  );
+  return rows[0]?.name ?? null;
 }

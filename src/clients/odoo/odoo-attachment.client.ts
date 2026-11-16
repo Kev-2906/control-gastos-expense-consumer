@@ -3,6 +3,12 @@ import { OdooHttpClient, WRITE_TIMEOUT_MS } from './odoo-http.client';
 import { parseCreateResponse } from './odoo-response';
 
 const ATTACHMENT_MODEL = 'ir.attachment';
+const RECEIPT_MARKER_PREFIX = 'portal:';
+
+export interface PortalReceiptAttachment {
+  attachmentId: number;
+  receiptId: string;
+}
 
 export interface ReceiptFile {
   receiptId: string;
@@ -25,6 +31,33 @@ export class OdooAttachmentClient {
       limit: 1,
     });
     return attachment?.id ?? null;
+  }
+
+  async findPortalReceipts(odooExpenseId: number): Promise<PortalReceiptAttachment[]> {
+    const attachments = await this.http.searchRead<{ id: number; description: string }>(
+      ATTACHMENT_MODEL,
+      {
+        domain: [
+          ['res_model', '=', EXPENSE_MODEL],
+          ['res_id', '=', odooExpenseId],
+          ['description', '=like', `${RECEIPT_MARKER_PREFIX}%`],
+        ],
+        fields: ['description'],
+      },
+    );
+    return attachments.map((attachment) => ({
+      attachmentId: attachment.id,
+      receiptId: attachment.description.slice(RECEIPT_MARKER_PREFIX.length),
+    }));
+  }
+
+  async delete(attachmentIds: number[]): Promise<void> {
+    await this.http.call(
+      ATTACHMENT_MODEL,
+      'unlink',
+      { ids: attachmentIds, context: this.http.context },
+      WRITE_TIMEOUT_MS,
+    );
   }
 
   async upload(odooExpenseId: number, file: ReceiptFile): Promise<number> {
@@ -51,5 +84,5 @@ export class OdooAttachmentClient {
 }
 
 function receiptMarker(receiptId: string): string {
-  return `portal:${receiptId}`;
+  return `${RECEIPT_MARKER_PREFIX}${receiptId}`;
 }

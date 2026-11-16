@@ -2,12 +2,16 @@ import { GetObjectCommand, NoSuchKey, S3Client } from '@aws-sdk/client-s3';
 import { config } from '../../core/config';
 import { ExpenseRejectedError, RetryLaterError } from '../../core/errors';
 
+const CONNECTION_TIMEOUT_MS = 5_000;
+const DOWNLOAD_TIMEOUT_MS = 3 * 60 * 1000;
+
 const client = new S3Client({
   region: config.STORAGE_REGION,
   credentials: {
     accessKeyId: config.STORAGE_ACCESS_KEY_ID,
     secretAccessKey: config.STORAGE_SECRET_ACCESS_KEY,
   },
+  requestHandler: { connectionTimeout: CONNECTION_TIMEOUT_MS },
 });
 
 export async function downloadReceipt(
@@ -19,6 +23,7 @@ export async function downloadReceipt(
   try {
     const { Body } = await client.send(
       new GetObjectCommand({ Bucket: config.STORAGE_BUCKET, Key: key }),
+      { abortSignal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) },
     );
     return Buffer.from(await Body!.transformToByteArray());
   } catch (error) {

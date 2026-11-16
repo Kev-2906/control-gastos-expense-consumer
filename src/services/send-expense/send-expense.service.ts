@@ -7,6 +7,7 @@ import * as connections from '../../repositories/odoo-connection.repository';
 import { OdooConnection } from '../../repositories/odoo-connection.repository';
 import { sendToOdoo } from './expense-sender';
 import { ensureIsSendable } from './expense.validator';
+import { emailNotices } from '../notifications/notice-emailer';
 import { handleSendFailure } from './send-failure.handler';
 
 export interface ExpenseSubmitted {
@@ -49,13 +50,14 @@ async function send(submission: Submission, connection: OdooConnection | null): 
   });
   const sent = await sendToOdoo(odoo, submission, expense);
 
-  await submissions.markSent(
+  const notice = await submissions.markSent(
     organizationId,
     expenseId,
     sent.odooId,
     expenseStatusOf(sent.state),
     sent.total,
   );
+  await emailNotices(notice ? [notice] : []);
 }
 
 function ensureIsNotPaused(connection: OdooConnection | null): void {
