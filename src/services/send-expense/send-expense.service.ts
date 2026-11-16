@@ -1,5 +1,6 @@
 import { openOdooClients } from '../../clients/odoo/odoo-clients.factory';
 import { RetryLaterError } from '../../core/errors';
+import { ensureAuditAvailable } from '../../repositories/odoo-audit.repository';
 import * as submissions from '../../repositories/expense-submission.repository';
 import { Submission } from '../../repositories/expense-submission.repository';
 import * as expenses from '../../repositories/expense.repository';
@@ -39,6 +40,7 @@ export async function sendExpense(
 async function send(submission: Submission, connection: OdooConnection | null): Promise<void> {
   const { organizationId, expenseId, connectionId } = submission;
 
+  await ensureAuditAvailable();
   const expense = await expenses.findForOdoo(organizationId, expenseId, connectionId);
   ensureIsSendable(expense);
 

@@ -11,7 +11,7 @@
     "start:dev": "tsx watch --env-file-if-exists=.env src/main.ts",
     "start:prod": "node --env-file-if-exists=.env dist/main",
     "lint": "oxlint --type-aware src/",
-    "audit:init": "AUDIT_INIT_DIR=docker/sqlite/init sh docker/entrypoint.sh true"
+    "audit:migrate": "tsx --env-file-if-exists=.env src/scripts/audit-migrate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",

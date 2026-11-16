@@ -14,5 +14,3 @@ dist/
 !.vscode/settings.json
 .idea/
 
-# Auditoría en SQLite
-/data/

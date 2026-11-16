@@ -19,7 +19,11 @@ const envSchema = z.object({
   STORAGE_BUCKET: requiredString,
   STORAGE_ACCESS_KEY_ID: requiredString,
   STORAGE_SECRET_ACCESS_KEY: requiredString,
-  ODOO_AUDIT_DB_PATH: requiredString.default('./data/odoo-audit.sqlite'),
+  AUDIT_DATABASE_HOST: requiredString,
+  AUDIT_DATABASE_PORT: z.coerce.number().int().positive().default(5432),
+  AUDIT_DATABASE_USERNAME: requiredString,
+  AUDIT_DATABASE_PASSWORD: requiredString,
+  AUDIT_DATABASE_NAME: requiredString,
 });
 
 export const config = envSchema.parse(process.env);
