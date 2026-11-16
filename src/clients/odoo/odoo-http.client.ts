@@ -48,7 +48,7 @@ export class OdooHttpClient {
 
     const { statusCode, responsePayload } = await this.post(endpoint, body, timeoutMs);
 
-    recordOdooCall({
+    await recordOdooCall({
       correlationId: randomUUID(),
       organizationId: this.session.organizationId,
       connectionId: this.session.connectionId,
