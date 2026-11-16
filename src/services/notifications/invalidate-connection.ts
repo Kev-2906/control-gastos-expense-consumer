@@ -21,6 +21,7 @@ export async function invalidateConnection(
     for (const admin of await users.findActiveAdmins(client, organizationId)) {
       notices.push(
         await notifications.create(client, organizationId, admin, null, 'odoo_connection_invalid', {
+          connectionId,
           connectionName,
         }),
       );
@@ -33,6 +34,7 @@ export async function invalidateConnection(
       notices.push(
         await notifications.create(client, organizationId, reporter, null, 'expense_send_delayed', {
           count,
+          connectionId,
           connectionName,
         }),
       );

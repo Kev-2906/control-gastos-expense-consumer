@@ -14,6 +14,7 @@ export interface NotificationData {
   previousStatus?: string | null;
   errorCode?: string | null;
   count?: number;
+  connectionId?: string;
   connectionName?: string;
 }
 
