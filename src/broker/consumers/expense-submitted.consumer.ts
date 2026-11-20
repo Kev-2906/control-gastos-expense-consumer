@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { ExpenseSubmitted, sendExpense } from '../../services/send-expense/send-expense.service';
 import { handleRetriesExhausted } from '../../services/send-expense/send-failure.handler';
 
-export const EXPENSE_SEND_DELIVERY_LIMIT = 173;
+export const EXPENSE_SEND_DELIVERY_LIMIT = 78;
 
 const FAILURES_IN_A_DAY = 29;
 

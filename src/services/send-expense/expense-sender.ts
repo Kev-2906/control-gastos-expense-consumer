@@ -20,7 +20,7 @@ export async function sendToOdoo(
 ): Promise<OdooExpense> {
   const { organizationId, expenseId } = submission;
 
-  const existing = await odoo.expenses.find();
+  const existing = submission.attempts > 0 ? await odoo.expenses.find() : null;
   if (existing && existing.state !== ODOO_DRAFT_STATE) return existing;
 
   const category = await findUsableCategory(odoo.catalog, expense);

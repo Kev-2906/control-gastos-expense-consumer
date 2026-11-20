@@ -15,7 +15,10 @@ export function parseResponse(statusCode: number, body: string): unknown {
     throw new RetryLaterError('ODOO_INVALID_API_KEY', 'The Odoo API key was rejected');
   }
   if (statusCode === 403) {
-    throw new RetryLaterError('ODOO_ADMIN_REQUIRED', 'The Odoo API key lacks permissions');
+    throw new RetryLaterError(
+      'ODOO_PERMISSION_DENIED',
+      'The Odoo API key user lacks a required permission',
+    );
   }
   if (statusCode === 413) {
     throw new ExpenseRejectedError(

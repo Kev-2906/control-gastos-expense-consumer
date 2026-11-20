@@ -1,8 +1,11 @@
+import { RetryLaterError } from '../../core/errors';
 import { EXTERNAL_ID_MODULE, OdooLoadQuery } from './odoo-expense.payload';
 import { OdooHttpClient, WRITE_TIMEOUT_MS } from './odoo-http.client';
 import { parseLoadResponse } from './odoo-response';
 
 export const EXPENSE_MODEL = 'hr.expense';
+
+const EXTERNAL_ID_NOT_FOUND = 'External ID not found in the system';
 
 export interface OdooExpense {
   odooId: number;
@@ -14,16 +17,8 @@ export class OdooExpenseClient {
   constructor(private readonly http: OdooHttpClient) {}
 
   async find(): Promise<OdooExpense | null> {
-    const [externalId] = await this.http.searchRead<{ res_id: number }>('ir.model.data', {
-      domain: [
-        ['module', '=', EXTERNAL_ID_MODULE],
-        ['name', '=', this.http.session.expenseId],
-        ['model', '=', EXPENSE_MODEL],
-      ],
-      fields: ['res_id'],
-      limit: 1,
-    });
-    return externalId ? this.read(externalId.res_id) : null;
+    const odooId = await this.findOdooId();
+    return odooId ? this.read(odooId) : null;
   }
 
   async read(odooId: number): Promise<OdooExpense | null> {
@@ -56,5 +51,28 @@ export class OdooExpenseClient {
       { ids: [odooId], context: this.http.context },
       WRITE_TIMEOUT_MS,
     );
+  }
+
+  private async findOdooId(): Promise<number | null> {
+    let reference: unknown;
+    try {
+      reference = await this.http.call('ir.model.data', 'check_object_reference', {
+        module: EXTERNAL_ID_MODULE,
+        xml_id: this.http.session.expenseId,
+      });
+    } catch (error) {
+      if (error instanceof RetryLaterError && error.message.startsWith(EXTERNAL_ID_NOT_FOUND)) {
+        return null;
+      }
+      throw error;
+    }
+    if (!Array.isArray(reference)) {
+      throw new RetryLaterError(
+        'ODOO_INVALID_RESPONSE',
+        'Odoo returned no reference for the External ID',
+      );
+    }
+    const [model, odooId] = reference as [string, number | false];
+    return model === EXPENSE_MODEL && odooId ? odooId : null;
   }
 }

@@ -9,6 +9,7 @@ export interface Submission {
   organizationId: string;
   connectionId: string;
   status: string;
+  attempts: number;
 }
 
 const LOCK_DURATION_MS = 10 * 60 * 1000;
@@ -27,7 +28,8 @@ const COLUMNS = `
   expense_id AS "expenseId",
   organization_id AS "organizationId",
   connection_id AS "connectionId",
-  status
+  status,
+  attempts
 `;
 
 export async function find(organizationId: string, expenseId: string): Promise<Submission | null> {
